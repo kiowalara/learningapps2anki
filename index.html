@@ -33,7 +33,7 @@ main {
   box-shadow: 0 2px 10px #1b365010;
 }
 h2 { font-size: 18px; margin-top: 0; }
-input, textarea, select {
+input, textarea {
   width: 100%;
   padding: 11px;
   border: 1px solid #ccd5e1;
@@ -67,7 +67,7 @@ button:disabled { opacity: .5; cursor: wait; }
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 650px;
+  min-width: 550px;
 }
 th, td {
   padding: 9px;
@@ -90,13 +90,6 @@ pre {
   border-radius: 7px;
 }
 .hidden { display: none; }
-.synonyms {
-  display: grid;
-  gap: 6px;
-}
-.synonyms input {
-  padding: 8px;
-}
 .ai-box {
   background: #f3f6fa;
   padding: 15px;
@@ -134,8 +127,8 @@ pre {
 <section class="card">
   <h2>2. Erkannte Vokabeln bearbeiten</h2>
   <p class="muted">
-    Links steht das französische Wort. Rechts kannst du bis zu vier
-    deutsche Übersetzungen oder Synonyme eintragen.
+    Links steht das französische Wort, rechts die deutschen Übersetzungen.
+    Mehrere Synonyme werden durch Kommas getrennt.
   </p>
 
   <div id="empty">Noch keine Vokabeln geladen.</div>
@@ -146,7 +139,7 @@ pre {
         <thead>
           <tr>
             <th>Französisch</th>
-            <th>Deutsch (1–4 Synonyme)</th>
+            <th>Deutsch (Synonyme)</th>
             <th></th>
           </tr>
         </thead>
@@ -156,6 +149,7 @@ pre {
 
     <div class="actions">
       <button class="secondary" id="add">+ Vokabel hinzufügen</button>
+      <button id="translate">Deutsche Synonyme automatisch erstellen</button>
       <button id="export">Anki-Datei herunterladen</button>
     </div>
     <p class="muted" id="count"></p>
@@ -173,7 +167,7 @@ pre {
     Du kannst einen Arbeitsauftrag formulieren, beispielsweise:
   </p>
   <ul>
-    <li>Füge bei französischen Substantiven den bestimmten Artikel hinzu.</li>
+    <li>Füge bei französischen Substantiven den Artikel hinzu.</li>
     <li>Ergänze vier passende deutsche Synonyme.</li>
     <li>Verbessere die deutschen Übersetzungen.</li>
     <li>Ergänze bei Verben den Infinitiv.</li>
@@ -183,13 +177,12 @@ pre {
   <div class="ai-box">
     <label for="aiPrompt"><strong>Dein KI-Arbeitsauftrag:</strong></label>
     <textarea id="aiPrompt"
-      placeholder="z.B. Ergänze zu jedem französischen Wort bis zu vier passende deutsche Synonyme. Füge bei Substantiven den Artikel hinzu."></textarea>
+      placeholder="z.B. Ergänze vier passende deutsche Synonyme und füge bei Substantiven den französischen Artikel hinzu."></textarea>
 
     <button id="createPrompt">KI-Prompt erstellen und kopieren</button>
 
     <p class="muted">
-      Der folgende Prompt enthält deine Vokabeln und deinen Arbeitsauftrag.
-      Du kannst ihn in ChatGPT einfügen.
+      Den kopierten Prompt in ChatGPT einfügen und das Ergebnis anschließend hier einsetzen.
     </p>
 
     <label for="aiResult"><strong>KI-Ergebnis (JSON) einfügen:</strong></label>
@@ -222,7 +215,7 @@ pre {
 const $ = id => document.getElementById(id);
 let pairs = [];
 
-const STORAGE_KEY = "learningapps2anki_cards_v3";
+const STORAGE_KEY = "learningapps2anki_cards_v4";
 
 function setStatus(message, type = "") {
   $("status").textContent = message;
@@ -238,20 +231,26 @@ function saveCards() {
 }
 
 function normalizePair(p) {
-  let synonyms = [];
+  let synonyms = p.synonyms;
 
-  if (Array.isArray(p.synonyms)) {
-    synonyms = p.synonyms;
-  } else if (Array.isArray(p.translations)) {
-    synonyms = p.translations.map(t => t.text || "");
-  } else if (p.back) {
-    synonyms = String(p.back).split(/[,;]/);
+  if (Array.isArray(synonyms)) {
+    synonyms = synonyms.join(", ");
+  }
+
+  if (typeof synonyms !== "string") {
+    synonyms = p.back || "";
+  }
+
+  if (!synonyms && Array.isArray(p.translations)) {
+    synonyms = p.translations
+      .map(t => t.text || "")
+      .filter(Boolean)
+      .join(", ");
   }
 
   return {
     front: String(p.front || ""),
-    synonyms: synonyms.map(s => String(s || "").trim())
-      .filter(Boolean).slice(0, 4)
+    synonyms: String(synonyms || "")
   };
 }
 
@@ -340,7 +339,7 @@ function findPairs(data) {
 
     found.push({
       front: vocabulary,
-      synonyms: [groupName]
+      synonyms: groupName
     });
   }
 
@@ -368,24 +367,18 @@ function render() {
     tr.appendChild(frontCell);
 
     const synonymCell = document.createElement("td");
-    const synonymList = document.createElement("div");
-    synonymList.className = "synonyms";
+    const synonymInput = document.createElement("input");
 
-    for (let j = 0; j < 4; j++) {
-      const input = document.createElement("input");
+    synonymInput.placeholder =
+      "z.B. angemessen, relevant, sachdienlich";
+    synonymInput.value = p.synonyms;
 
-      input.placeholder = "Deutsche Übersetzung " + (j + 1);
-      input.value = p.synonyms[j] || "";
+    synonymInput.addEventListener("input", () => {
+      pairs[i].synonyms = synonymInput.value;
+      saveCards();
+    });
 
-      input.addEventListener("input", () => {
-        pairs[i].synonyms[j] = input.value;
-        saveCards();
-      });
-
-      synonymList.appendChild(input);
-    }
-
-    synonymCell.appendChild(synonymList);
+    synonymCell.appendChild(synonymInput);
     tr.appendChild(synonymCell);
 
     const actionCell = document.createElement("td");
@@ -439,7 +432,7 @@ $("load").onclick = async () => {
     const newPairs = findPairs(data);
 
     if (newPairs.length) {
-      pairs = newPairs;
+      pairs = newPairs.map(normalizePair);
       render();
       saveCards();
 
@@ -461,7 +454,7 @@ $("load").onclick = async () => {
 $("add").onclick = () => {
   pairs.push({
     front: "",
-    synonyms: ["", "", "", ""]
+    synonyms: ""
   });
 
   render();
@@ -481,23 +474,22 @@ function buildAIPrompt() {
 
   const vocabulary = pairs.map(p => ({
     french: p.front,
-    german_synonyms: p.synonyms
+    german: p.synonyms
   }));
 
   return `
 Du bist ein Experte für französische Sprache und deutsche Übersetzungen.
 
-WICHTIGE REGELN:
-
-1. Die Ausgangswörter sind FRANZÖSISCH.
-2. ALLE Übersetzungen und Synonyme müssen DEUTSCH sein.
-3. Erzeuge pro französischem Wort 1 bis maximal 4 deutsche Synonyme.
-4. Verwende keine französischen Synonyme als Übersetzungen.
-5. Achte auf die tatsächliche Bedeutung des französischen Wortes.
-6. Ergänze bei Substantiven auf Wunsch den passenden französischen Artikel.
-7. Bewahre die Reihenfolge und Anzahl der Vokabeln.
-8. Erfinde keine Bedeutungen.
-9. Gib ausschließlich gültiges JSON zurück, ohne Markdown-Codeblock.
+WICHTIG:
+- Die Ausgangswörter sind FRANZÖSISCH.
+- ALLE Übersetzungen müssen DEUTSCH sein.
+- Gib pro Wort möglichst 3 bis 4 passende deutsche Synonyme an.
+- Trenne die Synonyme mit Kommas in EINEM String.
+- Verwende keine französischen Synonyme als Übersetzung.
+- Achte auf die tatsächliche Bedeutung des französischen Wortes.
+- Bewahre die Reihenfolge und Anzahl der Vokabeln.
+- Erfinde keine Bedeutungen.
+- Gib ausschließlich gültiges JSON zurück, ohne Markdown-Codeblock.
 
 ARBEITSAUFTRAG:
 ${instruction}
@@ -509,16 +501,11 @@ ERWARTETES AUSGABEFORMAT:
 [
   {
     "front": "pertinent",
-    "synonyms": [
-      "angemessen",
-      "relevant",
-      "sachdienlich",
-      "zutreffend"
-    ]
+    "synonyms": "angemessen, relevant, sachdienlich, zutreffend"
   }
 ]
 
-Die Werte in "synonyms" müssen ausnahmslos deutsche Wörter oder Wendungen sein.
+Alle Werte in "synonyms" müssen deutsche Übersetzungen sein.
 `;
 }
 
@@ -557,22 +544,19 @@ $("applyAI").onclick = () => {
     }
 
     const updated = result.map(item => {
-      if (!item.front || !Array.isArray(item.synonyms)) {
+      if (!item.front || typeof item.synonyms !== "string") {
         throw new Error("Ungültiges Vokabelformat.");
       }
 
       return {
         front: String(item.front),
         synonyms: item.synonyms
-          .map(s => String(s).trim())
-          .filter(Boolean)
-          .slice(0, 4)
       };
     });
 
     if (updated.length !== pairs.length) {
       throw new Error(
-        "Die Anzahl der Vokabeln stimmt nicht überein. Bitte vollständiges Ergebnis verwenden."
+        "Die Anzahl der Vokabeln stimmt nicht überein."
       );
     }
 
@@ -591,10 +575,31 @@ $("applyAI").onclick = () => {
   }
 };
 
+// Automatische Übersetzung: erstellt einen Prompt für alle Vokabeln.
+$("translate").onclick = async () => {
+  try {
+    $("aiPrompt").value =
+      "Übersetze jedes französische Wort ins Deutsche und ergänze möglichst vier passende deutsche Synonyme. Gib keine französischen Synonyme aus. Bei Substantiven darf der französische Artikel ergänzt werden.";
+
+    const prompt = buildAIPrompt();
+    await navigator.clipboard.writeText(prompt);
+
+    $("aiStatus").textContent =
+      "Der Übersetzungs-Prompt wurde kopiert. Füge ihn in ChatGPT ein und übernimm danach das JSON-Ergebnis im Feld unten.";
+
+    $("aiStatus").className = "status success";
+
+    $("aiPrompt").scrollIntoView({ behavior: "smooth" });
+
+  } catch (e) {
+    $("aiStatus").textContent = e.message;
+    $("aiStatus").className = "status error";
+  }
+};
+
 $("export").onclick = () => {
   const valid = pairs.filter(p =>
-    p.front.trim() &&
-    p.synonyms.some(s => s.trim())
+    p.front.trim() && p.synonyms.trim()
   );
 
   if (!valid.length) {
@@ -605,16 +610,12 @@ $("export").onclick = () => {
   const quote = value =>
     '"' + String(value).replace(/"/g, '""') + '"';
 
-  const content = "\uFEFF" + valid.map(p => {
-    const german = p.synonyms
-      .filter(s => s.trim())
-      .join(", ");
-
-    return [
+  const content = "\uFEFF" + valid.map(p =>
+    [
       quote(p.front),
-      quote(german)
-    ].join("\t");
-  }).join("\r\n");
+      quote(p.synonyms)
+    ].join("\t")
+  ).join("\r\n");
 
   const blob = new Blob([content], {
     type: "text/tab-separated-values;charset=utf-8"
