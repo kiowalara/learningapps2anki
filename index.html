@@ -1,0 +1,405 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LearningApps2Anki</title>
+<style>
+:root {
+  font-family: system-ui, sans-serif;
+  color: #243247;
+  background: #f3f6fb;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+header {
+  background: #244c83;
+  color: white;
+  padding: 25px 20px;
+}
+header h1 { margin: 0; font-size: 25px; }
+header p { margin: 6px 0 0; opacity: .85; }
+main {
+  max-width: 900px;
+  margin: 25px auto;
+  padding: 0 16px 40px;
+}
+.card {
+  background: white;
+  padding: 22px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 10px #1b365010;
+}
+h2 { font-size: 18px; margin-top: 0; }
+input, textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccd5e1;
+  border-radius: 7px;
+  font: inherit;
+}
+button {
+  border: 0;
+  border-radius: 7px;
+  padding: 11px 17px;
+  background: #2865a8;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+  margin: 5px 4px 5px 0;
+}
+button:hover { filter: brightness(.92); }
+button.secondary { background: #65758b; }
+button.danger { background: #b94b4b; }
+button:disabled { opacity: .5; cursor: wait; }
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 9px;
+  margin: 9px 0;
+}
+.status {
+  padding: 12px;
+  border-radius: 7px;
+  margin-top: 12px;
+  background: #edf3fa;
+  white-space: pre-wrap;
+}
+.error { background: #fff0ed; color: #9d3429; }
+.success { background: #e9f7ee; color: #216b3b; }
+table { width: 100%; border-collapse: collapse; }
+th, td {
+  padding: 9px;
+  border-bottom: 1px solid #e5eaf0;
+  text-align: left;
+}
+th { background: #f3f6fa; }
+td input { padding: 8px; }
+small, .muted { color: #6d7b8c; }
+.actions { margin-top: 12px; }
+details { margin-top: 14px; }
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 350px;
+  overflow: auto;
+  background: #f3f6fa;
+  padding: 12px;
+  border-radius: 7px;
+}
+.hidden { display: none; }
+@media(max-width:600px) {
+  .row { grid-template-columns: 1fr; }
+  table { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📚 LearningApps2Anki</h1>
+  <p>LearningApps-Vokabeln erkennen und nach Anki exportieren</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1. LearningApps-Übung laden</h2>
+    <p>Füge hier den Link zu deiner LearningApp ein:</p>
+    <input id="url" type="url"
+      value="https://learningapps.org/display?v=pt1ewk3yj26"
+      placeholder="https://learningapps.org/display?v=...">
+    <div class="actions">
+      <button id="load">Übung laden</button>
+    </div>
+    <div id="status" class="status">
+      Bereit. Füge einen LearningApps-Link ein.
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. Erkannte Vokabeln</h2>
+    <p class="muted">
+      Prüfe die Zuordnungen und korrigiere sie bei Bedarf.
+      Du kannst auch eigene Paare ergänzen.
+    </p>
+    <div id="empty">Noch keine Vokabeln geladen.</div>
+    <div id="results" class="hidden">
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Vorderseite (z.B. Französisch)</th>
+              <th>Rückseite (z.B. Deutsch)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="vocab"></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="secondary" id="add">+ Vokabel hinzufügen</button>
+        <button id="export">Anki-Datei herunterladen</button>
+      </div>
+      <p class="muted" id="count"></p>
+    </div>
+    <details>
+      <summary>Technische Daten anzeigen (zur Fehlersuche)</summary>
+      <pre id="debug">Noch keine Daten vorhanden.</pre>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>3. In Anki importieren</h2>
+    <ol>
+      <li>Die heruntergeladene TSV-Datei öffnen bzw. speichern.</li>
+      <li>Anki starten.</li>
+      <li>Auf „Datei importieren“ klicken.</li>
+      <li>Die TSV-Datei auswählen.</li>
+      <li>Trennzeichen: Tabulator.</li>
+      <li>Feld 1 = Vorderseite, Feld 2 = Rückseite.</li>
+    </ol>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let pairs = [];
+
+function setStatus(message, type = "") {
+  $("status").textContent = message;
+  $("status").className = "status " + type;
+}
+
+function getGuid(url) {
+  const parsed = new URL(url);
+  if (!["learningapps.org", "www.learningapps.org"].includes(parsed.hostname)) {
+    throw new Error("Bitte einen gültigen LearningApps-Link eingeben.");
+  }
+
+  const guid = parsed.searchParams.get("v")
+    || parsed.searchParams.get("id")
+    || parsed.searchParams.get("app")
+    || parsed.pathname.split("/").filter(Boolean).pop();
+
+  if (!guid || !/^[a-zA-Z0-9-]+$/.test(guid)) {
+    throw new Error("Keine gültige App-ID gefunden.");
+  }
+  return guid;
+}
+
+function cleanText(value) {
+  if (typeof value !== "string") return "";
+  return value.replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ").trim();
+}
+
+function collectStrings(obj, depth = 0) {
+  if (depth > 7 || obj == null) return [];
+  if (typeof obj === "string") {
+    const s = cleanText(obj);
+    return s ? [s] : [];
+  }
+  if (Array.isArray(obj)) {
+    return obj.flatMap(x => collectStrings(x, depth + 1));
+  }
+  if (typeof obj === "object") {
+    const preferred = ["text", "title", "value", "content",
+      "question", "answer", "description", "label"];
+    const result = [];
+    for (const key of preferred) {
+      if (obj[key] != null) {
+        result.push(...collectStrings(obj[key], depth + 1));
+      }
+    }
+    return result;
+  }
+  return [];
+}
+
+function findPairs(data) {
+  const found = [];
+  const seen = new Set();
+
+  function add(a, b) {
+    a = cleanText(a);
+    b = cleanText(b);
+    if (!a || !b || a === b) return;
+    const key = a + "\u0000" + b;
+    if (!seen.has(key)) {
+      seen.add(key);
+      found.push({ front: a, back: b });
+    }
+  }
+
+  function walk(obj, depth = 0) {
+    if (!obj || depth > 12) return;
+
+    if (Array.isArray(obj)) {
+      // Arrays of explicit pairs
+      for (const item of obj) {
+        if (Array.isArray(item) && item.length >= 2) {
+          const a = collectStrings(item[0]).join(" ");
+          const b = collectStrings(item[1]).join(" ");
+          add(a, b);
+        } else if (item && typeof item === "object") {
+          const keys = Object.keys(item);
+          const left = ["left", "source", "question", "front", "word", "term"];
+          const right = ["right", "target", "answer", "back", "translation"];
+          const lk = keys.find(k => left.includes(k.toLowerCase()));
+          const rk = keys.find(k => right.includes(k.toLowerCase()));
+          if (lk && rk) add(
+            collectStrings(item[lk]).join(" "),
+            collectStrings(item[rk]).join(" ")
+          );
+        }
+      }
+    }
+
+    if (obj && typeof obj === "object") {
+      // Explicit paired fields
+      const keys = Object.keys(obj);
+      const left = ["left", "source", "question", "front", "word", "term"];
+      const right = ["right", "target", "answer", "back", "translation"];
+      const lk = keys.find(k => left.includes(k.toLowerCase()));
+      const rk = keys.find(k => right.includes(k.toLowerCase()));
+      if (lk && rk) add(
+        collectStrings(obj[lk]).join(" "),
+        collectStrings(obj[rk]).join(" ")
+      );
+
+      for (const value of Object.values(obj)) {
+        walk(value, depth + 1);
+      }
+    }
+  }
+
+  walk(data);
+  return found;
+}
+
+function render() {
+  $("empty").classList.toggle("hidden", pairs.length > 0);
+  $("results").classList.toggle("hidden", pairs.length === 0);
+  $("vocab").innerHTML = "";
+
+  pairs.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    for (const field of ["front", "back"]) {
+      const td = document.createElement("td");
+      const input = document.createElement("input");
+      input.value = p[field];
+      input.addEventListener("input", () => {
+        pairs[i][field] = input.value;
+      });
+      td.appendChild(input);
+      tr.appendChild(td);
+    }
+
+    const td = document.createElement("td");
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.className = "danger";
+    del.title = "Vokabel löschen";
+    del.onclick = () => {
+      pairs.splice(i, 1);
+      render();
+    };
+    td.appendChild(del);
+    tr.appendChild(td);
+    $("vocab").appendChild(tr);
+  });
+
+  $("count").textContent = pairs.length + " Vokabelpaare";
+}
+
+$("load").onclick = async () => {
+  try {
+    const guid = getGuid($("url").value.trim());
+    $("load").disabled = true;
+    setStatus("Lade LearningApps-Daten ...");
+
+    const response = await fetch(
+      "https://learningapps.org/data?id=" + encodeURIComponent(guid)
+    );
+
+    if (!response.ok) {
+      throw new Error("LearningApps antwortet mit HTTP " + response.status);
+    }
+
+    const raw = await response.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      throw new Error("Die Antwort ist kein gültiges JSON. Antwortbeginn: "
+        + raw.slice(0, 180));
+    }
+
+    $("debug").textContent = JSON.stringify(data, null, 2);
+    pairs = findPairs(data);
+    render();
+
+    if (pairs.length) {
+      setStatus(pairs.length +
+        " mögliche Vokabelpaare gefunden. Bitte kontrollieren!",
+        "success");
+    } else {
+      setStatus(
+        "Die Daten wurden geladen, aber die automatische Erkennung " +
+        "hat keine Vokabelpaare gefunden. Öffne bitte die technischen " +
+        "Daten. Die Datenstruktur muss dann noch angepasst werden.",
+        "error"
+      );
+    }
+  } catch (e) {
+    setStatus(
+      "Fehler: " + e.message +
+      "\n\nFalls der Browser den Zugriff wegen CORS blockiert, " +
+      "benötigen wir eine alternative Abrufmethode.",
+      "error"
+    );
+  } finally {
+    $("load").disabled = false;
+  }
+};
+
+$("add").onclick = () => {
+  pairs.push({ front: "", back: "" });
+  render();
+};
+
+$("export").onclick = () => {
+  const valid = pairs.filter(p =>
+    p.front.trim() && p.back.trim()
+  );
+
+  if (!valid.length) {
+    alert("Keine vollständigen Vokabelpaare vorhanden.");
+    return;
+  }
+
+  const quote = value =>
+    '"' + value.replace(/"/g, '""') + '"';
+
+  const content = "\uFEFF" + valid.map(p =>
+    quote(p.front) + "\t" + quote(p.back)
+  ).join("\r\n");
+
+  const blob = new Blob([content], {
+    type: "text/tab-separated-values;charset=utf-8"
+  });
+
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "learningapps2anki.tsv";
+  link.click();
+  URL.revokeObjectURL(link.href);
+};
+</script>
+</body>
+</html>
