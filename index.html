@@ -33,13 +33,14 @@ main {
   box-shadow: 0 2px 10px #1b365010;
 }
 h2 { font-size: 18px; margin-top: 0; }
-input {
+input, textarea, select {
   width: 100%;
   padding: 11px;
   border: 1px solid #ccd5e1;
   border-radius: 7px;
   font: inherit;
 }
+textarea { resize: vertical; }
 button {
   border: 0;
   border-radius: 7px;
@@ -53,6 +54,7 @@ button {
 button:hover { filter: brightness(.92); }
 button.secondary { background: #65758b; }
 button.danger { background: #b94b4b; }
+button.ai { background: #7545a8; }
 button:disabled { opacity: .5; cursor: wait; }
 .status {
   padding: 12px;
@@ -66,7 +68,7 @@ button:disabled { opacity: .5; cursor: wait; }
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 550px;
+  min-width: 750px;
 }
 th, td {
   padding: 9px;
@@ -89,6 +91,27 @@ pre {
   border-radius: 7px;
 }
 .hidden { display: none; }
+.translation {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto;
+  gap: 5px;
+  margin-bottom: 7px;
+}
+.translation button { margin: 0; padding: 7px 10px; }
+.synonym-label {
+  font-size: 12px;
+  color: #6d7b8c;
+  margin: 8px 0 4px;
+}
+.ai-box {
+  background: #f5f0fb;
+  border: 1px solid #e4d8f2;
+  border-radius: 9px;
+  padding: 16px;
+  margin: 18px 0;
+}
+.ai-box h3 { margin-top: 0; font-size: 16px; }
+.ai-box textarea { min-height: 85px; }
 @media(max-width:600px) {
   .card { padding: 15px; }
 }
@@ -98,7 +121,7 @@ pre {
 
 <header>
   <h1>📚 LearningApps2Anki</h1>
-  <p>LearningApps-Vokabeln erkennen, automatisch ins Deutsche übersetzen und nach Anki exportieren</p>
+  <p>LearningApps-Vokabeln erkennen, übersetzen und mit KI bearbeiten</p>
 </header>
 
 <main>
@@ -106,15 +129,12 @@ pre {
 <section class="card">
   <h2>1. LearningApps-Übung laden</h2>
   <p>Füge hier den Link zu deiner LearningApp ein:</p>
-
   <input id="url" type="url"
     value="https://learningapps.org/display?v=pt1ewk3yj26"
     placeholder="https://learningapps.org/display?v=...">
-
   <div class="actions">
-    <button id="load">Übung laden und übersetzen</button>
+    <button id="load">Übung laden</button>
   </div>
-
   <div id="status" class="status">
     Bereit. Füge einen LearningApps-Link ein.
   </div>
@@ -122,12 +142,29 @@ pre {
 
 <section class="card">
   <h2>2. Erkannte Vokabeln bearbeiten</h2>
-
   <p class="muted">
-    Die Vorderseite enthält das Originalwort aus LearningApps.
-    Die Rückseite wird automatisch ins Deutsche übersetzt.
-    Du kannst jede Übersetzung jederzeit manuell bearbeiten.
+    Bearbeite die Vokabeln manuell oder verwende die KI,
+    um mehrere Karten gleichzeitig zu verändern.
   </p>
+
+  <div class="ai-box">
+    <h3>✨ KI-Assistent für deine Vokabeln</h3>
+    <p class="muted">
+      Beschreibe, was verändert werden soll.
+      Die KI kann beispielsweise Artikel ergänzen,
+      Schreibweisen korrigieren oder Vokabeln vereinheitlichen.
+    </p>
+    <textarea id="aiPrompt"
+      placeholder="Beispiel: Füge bei allen französischen Substantiven den bestimmten Artikel hinzu."></textarea>
+    <div class="actions">
+      <button class="ai" id="aiApply">
+        ✨ KI-Bearbeitung anwenden
+      </button>
+    </div>
+    <div id="aiStatus" class="status">
+      Bereit für deine Anweisung.
+    </div>
+  </div>
 
   <div id="empty">Noch keine Vokabeln geladen.</div>
 
@@ -136,8 +173,8 @@ pre {
       <table>
         <thead>
           <tr>
-            <th>Original (Vorderseite)</th>
-            <th>Deutsche Übersetzung (Rückseite)</th>
+            <th>Vorderseite</th>
+            <th>Deutsche Übersetzung</th>
             <th></th>
           </tr>
         </thead>
@@ -146,14 +183,9 @@ pre {
     </div>
 
     <div class="actions">
-      <button class="secondary" id="add">
-        + Vokabel hinzufügen
-      </button>
-      <button id="export">
-        Anki-Datei herunterladen
-      </button>
+      <button class="secondary" id="add">+ Vokabel hinzufügen</button>
+      <button id="export">Anki-Datei herunterladen</button>
     </div>
-
     <p class="muted" id="count"></p>
   </div>
 
@@ -164,18 +196,31 @@ pre {
 </section>
 
 <section class="card">
-  <h2>3. In Anki importieren</h2>
+  <h2>3. Übersetzungen und Synonyme</h2>
+  <p>
+    Jede Vokabel kann bis zu vier deutsche Übersetzungen
+    enthalten. So kannst du auch mehrere Synonyme speichern.
+  </p>
+  <p class="muted">
+    Beispiel: maison → Haus, Gebäude, Heim, Wohnhaus.
+    Die erste Übersetzung steht im Hauptfeld.
+  </p>
+  <p>
+    Alle Übersetzungen lassen sich nachträglich manuell bearbeiten.
+  </p>
+</section>
 
+<section class="card">
+  <h2>4. In Anki importieren</h2>
   <ol>
     <li>Die heruntergeladene TSV-Datei auswählen.</li>
     <li>Anki starten und „Datei importieren“ wählen.</li>
     <li>Trennzeichen: Tabulator.</li>
-    <li>Feld 1 = Vorderseite (Original).</li>
-    <li>Feld 2 = Rückseite (Deutsch).</li>
+    <li>Die Felder den gewünschten Anki-Feldern zuordnen.</li>
   </ol>
-
   <p class="muted">
-    Export-Reihenfolge: Original, deutsche Übersetzung.
+    Export-Reihenfolge: Vorderseite, Übersetzung 1,
+    Übersetzung 2, Übersetzung 3, Übersetzung 4.
   </p>
 </section>
 
@@ -188,14 +233,43 @@ let pairs = [];
 
 const STORAGE_KEY = "learningapps2anki_cards_v3";
 
+// Hier die URL des eigenen KI-Backends eintragen.
+// Der API-Schlüssel gehört ausschließlich auf den Server.
+const AI_ENDPOINT = "/api/edit-vocabulary";
+
 function setStatus(message, type = "") {
   $("status").textContent = message;
   $("status").className = "status " + type;
 }
 
+function setAIStatus(message, type = "") {
+  $("aiStatus").textContent = message;
+  $("aiStatus").className = "status " + type;
+}
+
+function normalizePair(p) {
+  const translations = Array.isArray(p.translations)
+    ? p.translations
+    : [];
+
+  const values = translations
+    .map(t => typeof t === "string" ? t : t.text)
+    .filter(Boolean)
+    .slice(0, 4);
+
+  return {
+    front: String(p.front || ""),
+    back: String(p.back || ""),
+    translations: values
+  };
+}
+
 function saveCards() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pairs));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(pairs)
+    );
   } catch (e) {
     setStatus("Speichern fehlgeschlagen: " + e.message, "error");
   }
@@ -209,13 +283,8 @@ function loadSavedCards() {
       const data = JSON.parse(saved);
 
       if (Array.isArray(data)) {
-        pairs = data.map(p => ({
-          front: String(p.front || ""),
-          back: String(p.back || "")
-        }));
-
+        pairs = data.map(normalizePair);
         render();
-
         setStatus(
           "Gespeicherte Vokabeln wurden geladen.",
           "success"
@@ -233,16 +302,18 @@ function loadSavedCards() {
 function getGuid(url) {
   const parsed = new URL(url);
 
-  if (!["learningapps.org", "www.learningapps.org"].includes(parsed.hostname)) {
+  if (!["learningapps.org", "www.learningapps.org"]
+      .includes(parsed.hostname)) {
     throw new Error(
       "Bitte einen gültigen LearningApps-Link eingeben."
     );
   }
 
-  const guid = parsed.searchParams.get("v")
-    || parsed.searchParams.get("id")
-    || parsed.searchParams.get("app")
-    || parsed.pathname.split("/").filter(Boolean).pop();
+  const guid =
+    parsed.searchParams.get("v") ||
+    parsed.searchParams.get("id") ||
+    parsed.searchParams.get("app") ||
+    parsed.pathname.split("/").filter(Boolean).pop();
 
   if (!guid || !/^[a-zA-Z0-9-]+$/.test(guid)) {
     throw new Error("Keine gültige App-ID gefunden.");
@@ -254,53 +325,19 @@ function getGuid(url) {
 function cleanText(value) {
   if (typeof value !== "string") return "";
 
-  const element = document.createElement("textarea");
-  element.innerHTML = value.replace(/<[^>]*>/g, " ");
-
-  return element.value
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// Automatische Übersetzung ins Deutsche
-async function translateToGerman(text) {
-  if (!text || !text.trim()) return "";
-
-  const url = new URL(
-    "https://api.mymemory.translated.net/get"
-  );
-
-  url.searchParams.set("q", text);
-  url.searchParams.set("langpair", "autodetect|de");
-
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(
-      "Übersetzungsdienst nicht erreichbar."
-    );
-  }
-
-  const data = await response.json();
-
-  if (data.responseStatus !== 200) {
-    throw new Error(
-      data.responseDetails || "Übersetzung fehlgeschlagen."
-    );
-  }
-
-  return cleanText(
-    data.responseData.translatedText
-  );
-}
-
-// LearningApps-Daten auslesen
 function findPairs(data) {
   const found = [];
 
-  if (!data || !data.initparameters) {
-    return found;
-  }
+  if (!data || !data.initparameters) return found;
 
   const params = new URLSearchParams(data.initparameters);
   const groups = new Map();
@@ -336,47 +373,104 @@ function findPairs(data) {
 
     found.push({
       front: vocabulary,
-      back: ""
+      back: groupName,
+      translations: []
     });
   }
 
   return found;
 }
 
-// Vokabeltabelle anzeigen
 function render() {
-  $("empty").classList.toggle(
-    "hidden",
-    pairs.length > 0
-  );
-
-  $("results").classList.toggle(
-    "hidden",
-    pairs.length === 0
-  );
+  $("empty").classList.toggle("hidden", pairs.length > 0);
+  $("results").classList.toggle("hidden", pairs.length === 0);
 
   $("vocab").innerHTML = "";
 
   pairs.forEach((p, i) => {
     const tr = document.createElement("tr");
 
-    for (const field of ["front", "back"]) {
-      const td = document.createElement("td");
-      const input = document.createElement("input");
+    // Vorderseite
+    const frontCell = document.createElement("td");
+    const frontInput = document.createElement("input");
 
-      input.value = p[field] || "";
+    frontInput.value = p.front;
+
+    frontInput.addEventListener("input", () => {
+      pairs[i].front = frontInput.value;
+      saveCards();
+    });
+
+    frontCell.appendChild(frontInput);
+    tr.appendChild(frontCell);
+
+    // Deutsche Übersetzungen
+    const backCell = document.createElement("td");
+
+    const mainInput = document.createElement("input");
+    mainInput.placeholder = "Deutsche Übersetzung";
+    mainInput.value = p.back;
+
+    mainInput.addEventListener("input", () => {
+      pairs[i].back = mainInput.value;
+      saveCards();
+    });
+
+    backCell.appendChild(mainInput);
+
+    const label = document.createElement("div");
+    label.className = "synonym-label";
+    label.textContent = "Weitere Synonyme (maximal 3):";
+    backCell.appendChild(label);
+
+    p.translations = (p.translations || []).slice(0, 3);
+
+    p.translations.forEach((translation, j) => {
+      const row = document.createElement("div");
+      row.className = "translation";
+
+      const input = document.createElement("input");
+      input.placeholder = "Deutsches Synonym " + (j + 2);
+      input.value = translation;
 
       input.addEventListener("input", () => {
-        pairs[i][field] = input.value;
+        pairs[i].translations[j] = input.value;
         saveCards();
       });
 
-      td.appendChild(input);
-      tr.appendChild(td);
+      const remove = document.createElement("button");
+      remove.textContent = "✕";
+      remove.className = "danger";
+      remove.title = "Synonym löschen";
+
+      remove.onclick = () => {
+        pairs[i].translations.splice(j, 1);
+        render();
+        saveCards();
+      };
+
+      row.append(input, remove);
+      backCell.appendChild(row);
+    });
+
+    if (p.translations.length < 3) {
+      const add = document.createElement("button");
+      add.textContent = "+ Synonym hinzufügen";
+      add.className = "secondary";
+
+      add.onclick = () => {
+        pairs[i].translations.push("");
+        render();
+        saveCards();
+      };
+
+      backCell.appendChild(add);
     }
 
-    const td = document.createElement("td");
+    tr.appendChild(backCell);
 
+    // Löschen
+    const actionCell = document.createElement("td");
     const del = document.createElement("button");
 
     del.textContent = "✕";
@@ -389,8 +483,8 @@ function render() {
       saveCards();
     };
 
-    td.appendChild(del);
-    tr.appendChild(td);
+    actionCell.appendChild(del);
+    tr.appendChild(actionCell);
 
     $("vocab").appendChild(tr);
   });
@@ -399,13 +493,12 @@ function render() {
     pairs.length + " Vokabelpaare";
 }
 
-// LearningApps laden und automatisch übersetzen
+// LearningApps laden
 $("load").onclick = async () => {
   try {
     const guid = getGuid($("url").value.trim());
 
     $("load").disabled = true;
-
     setStatus("Lade LearningApps-Daten ...");
 
     const response = await fetch(
@@ -415,8 +508,7 @@ $("load").onclick = async () => {
 
     if (!response.ok) {
       throw new Error(
-        "LearningApps antwortet mit HTTP " +
-        response.status
+        "LearningApps antwortet mit HTTP " + response.status
       );
     }
 
@@ -428,8 +520,7 @@ $("load").onclick = async () => {
       data = JSON.parse(raw);
     } catch {
       throw new Error(
-        "Die Antwort ist kein gültiges JSON. Antwortbeginn: " +
-        raw.slice(0, 180)
+        "Die Antwort ist kein gültiges JSON."
       );
     }
 
@@ -438,79 +529,127 @@ $("load").onclick = async () => {
 
     const newPairs = findPairs(data);
 
-    if (!newPairs.length) {
+    if (newPairs.length) {
+      pairs = newPairs;
+      render();
+      saveCards();
+
+      setStatus(
+        newPairs.length +
+        " mögliche Vokabelpaare gefunden.",
+        "success"
+      );
+    } else {
       setStatus(
         "Keine Vokabelpaare gefunden.",
         "error"
       );
-      return;
     }
-
-    pairs = newPairs;
-
-    render();
-    saveCards();
-
-    let translated = 0;
-    let failed = 0;
-
-    for (let i = 0; i < pairs.length; i++) {
-      setStatus(
-        "Übersetze Vokabeln: " +
-        (i + 1) + " von " + pairs.length + " ..."
-      );
-
-      try {
-        pairs[i].back = await translateToGerman(
-          pairs[i].front
-        );
-
-        translated++;
-      } catch (e) {
-        console.error(
-          "Übersetzung fehlgeschlagen:",
-          pairs[i].front,
-          e
-        );
-
-        failed++;
-      }
-
-      render();
-      saveCards();
-    }
-
-    setStatus(
-      translated + " Vokabeln erfolgreich ins Deutsche übersetzt." +
-      (failed
-        ? "\n" + failed + " Übersetzungen fehlgeschlagen. Diese kannst du manuell ergänzen."
-        : "") +
-      "\nDu kannst jetzt alle Rückseiten bearbeiten.",
-      failed ? "error" : "success"
-    );
 
   } catch (e) {
     setStatus(
       "Fehler: " + e.message +
-      "\n\nFalls der Browser den Zugriff wegen CORS blockiert, " +
-      "benötigen wir eine alternative Abrufmethode.",
+      "\n\nFalls CORS blockiert, ist eine alternative Abrufmethode nötig.",
       "error"
     );
-
   } finally {
     $("load").disabled = false;
   }
 };
 
-// Eigene Vokabel hinzufügen
+// Vokabel hinzufügen
 $("add").onclick = () => {
   pairs.push({
     front: "",
-    back: ""
+    back: "",
+    translations: []
   });
 
   render();
   saveCards();
+};
+
+// KI-Bearbeitung
+$("aiApply").onclick = async () => {
+  const prompt = $("aiPrompt").value.trim();
+
+  if (!prompt) {
+    setAIStatus(
+      "Bitte gib zuerst eine Anweisung ein.",
+      "error"
+    );
+    return;
+  }
+
+  if (!pairs.length) {
+    setAIStatus(
+      "Es sind noch keine Vokabeln vorhanden.",
+      "error"
+    );
+    return;
+  }
+
+  const button = $("aiApply");
+  button.disabled = true;
+
+  setAIStatus("KI bearbeitet deine Vokabeln ...");
+
+  try {
+    const response = await fetch(AI_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        pairs: pairs,
+        instructions: [
+          "Bearbeite die übergebenen Vokabeln.",
+          "Die Hauptübersetzung muss Deutsch sein.",
+          "Erstelle bis zu vier deutsche Übersetzungsvarianten insgesamt.",
+          "Die erste Übersetzung gehört in das Feld back.",
+          "Weitere Synonyme gehören in translations.",
+          "Erhalte die ursprüngliche Bedeutung.",
+          "Erfinde keine zusätzlichen Vokabeln.",
+          "Gib ausschließlich das Ergebnis im JSON-Format zurück."
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        "KI-Server antwortet mit HTTP " + response.status
+      );
+    }
+
+    const result = await response.json();
+
+    if (!Array.isArray(result.pairs)) {
+      throw new Error(
+        "Die KI-Antwort enthält keine gültige Vokabelliste."
+      );
+    }
+
+    pairs = result.pairs.map(normalizePair);
+
+    render();
+    saveCards();
+
+    setAIStatus(
+      pairs.length +
+      " Vokabeln wurden erfolgreich bearbeitet.",
+      "success"
+    );
+
+  } catch (e) {
+    setAIStatus(
+      "KI-Bearbeitung fehlgeschlagen: " + e.message +
+      "\nBitte prüfe, ob dein KI-Backend eingerichtet ist.",
+      "error"
+    );
+  } finally {
+    button.disabled = false;
+  }
 };
 
 // Anki-Export
@@ -520,21 +659,29 @@ $("export").onclick = () => {
   );
 
   if (!valid.length) {
-    alert(
-      "Keine vollständigen Vokabelpaare vorhanden."
-    );
+    alert("Keine vollständigen Vokabelpaare vorhanden.");
     return;
   }
 
   const quote = value =>
-    '"' + String(value).replace(/"/g, '""') + '"';
+    '"' + String(value || "").replace(/"/g, '""') + '"';
 
-  const content = "\uFEFF" + valid.map(p =>
-    [
+  const content = "\uFEFF" + valid.map(p => {
+    const translations = [
+      p.back,
+      ...(p.translations || [])
+    ];
+
+    while (translations.length < 4) {
+      translations.push("");
+    }
+
+    return [
       quote(p.front),
-      quote(p.back)
-    ].join("\t")
-  ).join("\r\n");
+      ...translations.slice(0, 4).map(quote)
+    ].join("\t");
+
+  }).join("\r\n");
 
   const blob = new Blob([content], {
     type: "text/tab-separated-values;charset=utf-8"
@@ -552,6 +699,5 @@ $("export").onclick = () => {
 
 loadSavedCards();
 </script>
-
 </body>
 </html>
