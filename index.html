@@ -33,7 +33,7 @@ main {
   box-shadow: 0 2px 10px #1b365010;
 }
 h2 { font-size: 18px; margin-top: 0; }
-input, textarea, select {
+input {
   width: 100%;
   padding: 11px;
   border: 1px solid #ccd5e1;
@@ -63,7 +63,11 @@ button:disabled { opacity: .5; cursor: wait; }
 }
 .error { background: #fff0ed; color: #9d3429; }
 .success { background: #e9f7ee; color: #216b3b; }
-table { width: 100%; border-collapse: collapse; min-width: 650px; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 550px;
+}
 th, td {
   padding: 9px;
   border-bottom: 1px solid #e5eaf0;
@@ -71,7 +75,7 @@ th, td {
   vertical-align: top;
 }
 th { background: #f3f6fa; }
-td input, td select { padding: 8px; }
+td input { padding: 8px; }
 .muted { color: #6d7b8c; }
 .actions { margin-top: 12px; }
 details { margin-top: 14px; }
@@ -85,16 +89,8 @@ pre {
   border-radius: 7px;
 }
 .hidden { display: none; }
-.translation {
-  display: grid;
-  grid-template-columns: 105px minmax(140px, 1fr) auto;
-  gap: 5px;
-  margin-bottom: 7px;
-}
-.translation button { margin: 0; padding: 7px 10px; }
 @media(max-width:600px) {
   .card { padding: 15px; }
-  .translation { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -102,19 +98,23 @@ pre {
 
 <header>
   <h1>📚 LearningApps2Anki</h1>
-  <p>LearningApps-Vokabeln erkennen, übersetzen und nach Anki exportieren</p>
+  <p>LearningApps-Vokabeln erkennen, automatisch ins Deutsche übersetzen und nach Anki exportieren</p>
 </header>
 
 <main>
+
 <section class="card">
   <h2>1. LearningApps-Übung laden</h2>
   <p>Füge hier den Link zu deiner LearningApp ein:</p>
+
   <input id="url" type="url"
     value="https://learningapps.org/display?v=pt1ewk3yj26"
     placeholder="https://learningapps.org/display?v=...">
+
   <div class="actions">
-    <button id="load">Übung laden</button>
+    <button id="load">Übung laden und übersetzen</button>
   </div>
+
   <div id="status" class="status">
     Bereit. Füge einen LearningApps-Link ein.
   </div>
@@ -122,9 +122,11 @@ pre {
 
 <section class="card">
   <h2>2. Erkannte Vokabeln bearbeiten</h2>
+
   <p class="muted">
-    Bearbeite Vorder- und Rückseite und füge beliebig viele
-    Übersetzungen in verschiedenen Sprachen hinzu.
+    Die Vorderseite enthält das Originalwort aus LearningApps.
+    Die Rückseite wird automatisch ins Deutsche übersetzt.
+    Du kannst jede Übersetzung jederzeit manuell bearbeiten.
   </p>
 
   <div id="empty">Noch keine Vokabeln geladen.</div>
@@ -134,19 +136,24 @@ pre {
       <table>
         <thead>
           <tr>
-            <th>Vorderseite</th>
-            <th>Rückseite</th>
-            <th>Übersetzungen</th>
+            <th>Original (Vorderseite)</th>
+            <th>Deutsche Übersetzung (Rückseite)</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="vocab"></tbody>
       </table>
     </div>
+
     <div class="actions">
-      <button class="secondary" id="add">+ Vokabel hinzufügen</button>
-      <button id="export">Anki-Datei herunterladen</button>
+      <button class="secondary" id="add">
+        + Vokabel hinzufügen
+      </button>
+      <button id="export">
+        Anki-Datei herunterladen
+      </button>
     </div>
+
     <p class="muted" id="count"></p>
   </div>
 
@@ -157,52 +164,29 @@ pre {
 </section>
 
 <section class="card">
-  <h2>3. Übersetzungen verwalten</h2>
-  <p>Die Übersetzungen werden manuell eingetragen und lokal gespeichert.</p>
-  <p class="muted">
-    Eine automatische Übersetzung über einen externen Dienst
-    ist derzeit nicht aktiviert.
-  </p>
-</section>
+  <h2>3. In Anki importieren</h2>
 
-<section class="card">
-  <h2>4. In Anki importieren</h2>
   <ol>
     <li>Die heruntergeladene TSV-Datei auswählen.</li>
     <li>Anki starten und „Datei importieren“ wählen.</li>
     <li>Trennzeichen: Tabulator.</li>
-    <li>Die Felder den gewünschten Anki-Feldern zuordnen.</li>
+    <li>Feld 1 = Vorderseite (Original).</li>
+    <li>Feld 2 = Rückseite (Deutsch).</li>
   </ol>
+
   <p class="muted">
-    Export-Reihenfolge: Vorderseite, Rückseite,
-    Übersetzungen (Sprache: Text).
+    Export-Reihenfolge: Original, deutsche Übersetzung.
   </p>
 </section>
+
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
+
 let pairs = [];
 
-const STORAGE_KEY = "learningapps2anki_cards_v2";
-
-const languages = [
-  ["en", "Englisch"],
-  ["fr", "Französisch"],
-  ["es", "Spanisch"],
-  ["it", "Italienisch"],
-  ["de", "Deutsch"],
-  ["pt", "Portugiesisch"],
-  ["nl", "Niederländisch"],
-  ["pl", "Polnisch"],
-  ["ru", "Russisch"],
-  ["uk", "Ukrainisch"],
-  ["tr", "Türkisch"],
-  ["ar", "Arabisch"],
-  ["zh", "Chinesisch"],
-  ["ja", "Japanisch"],
-  ["ko", "Koreanisch"]
-];
+const STORAGE_KEY = "learningapps2anki_cards_v3";
 
 function setStatus(message, type = "") {
   $("status").textContent = message;
@@ -220,32 +204,39 @@ function saveCards() {
 function loadSavedCards() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
+
     if (saved) {
       const data = JSON.parse(saved);
+
       if (Array.isArray(data)) {
         pairs = data.map(p => ({
           front: String(p.front || ""),
-          back: String(p.back || ""),
-          translations: Array.isArray(p.translations)
-            ? p.translations.map(t => ({
-                lang: t.lang || "en",
-                text: t.text || ""
-              }))
-            : []
+          back: String(p.back || "")
         }));
+
         render();
-        setStatus("Gespeicherte Vokabeln wurden geladen.", "success");
+
+        setStatus(
+          "Gespeicherte Vokabeln wurden geladen.",
+          "success"
+        );
       }
     }
   } catch {
-    setStatus("Gespeicherte Daten konnten nicht gelesen werden.", "error");
+    setStatus(
+      "Gespeicherte Daten konnten nicht gelesen werden.",
+      "error"
+    );
   }
 }
 
 function getGuid(url) {
   const parsed = new URL(url);
+
   if (!["learningapps.org", "www.learningapps.org"].includes(parsed.hostname)) {
-    throw new Error("Bitte einen gültigen LearningApps-Link eingeben.");
+    throw new Error(
+      "Bitte einen gültigen LearningApps-Link eingeben."
+    );
   }
 
   const guid = parsed.searchParams.get("v")
@@ -256,40 +247,86 @@ function getGuid(url) {
   if (!guid || !/^[a-zA-Z0-9-]+$/.test(guid)) {
     throw new Error("Keine gültige App-ID gefunden.");
   }
+
   return guid;
 }
 
 function cleanText(value) {
   if (typeof value !== "string") return "";
-  return value.replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, " ").trim();
+
+  const element = document.createElement("textarea");
+  element.innerHTML = value.replace(/<[^>]*>/g, " ");
+
+  return element.value
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
+// Automatische Übersetzung ins Deutsche
+async function translateToGerman(text) {
+  if (!text || !text.trim()) return "";
+
+  const url = new URL(
+    "https://api.mymemory.translated.net/get"
+  );
+
+  url.searchParams.set("q", text);
+  url.searchParams.set("langpair", "autodetect|de");
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(
+      "Übersetzungsdienst nicht erreichbar."
+    );
+  }
+
+  const data = await response.json();
+
+  if (data.responseStatus !== 200) {
+    throw new Error(
+      data.responseDetails || "Übersetzung fehlgeschlagen."
+    );
+  }
+
+  return cleanText(
+    data.responseData.translatedText
+  );
+}
+
+// LearningApps-Daten auslesen
 function findPairs(data) {
   const found = [];
-  if (!data || !data.initparameters) return found;
+
+  if (!data || !data.initparameters) {
+    return found;
+  }
 
   const params = new URLSearchParams(data.initparameters);
   const groups = new Map();
 
   for (const [key, value] of params.entries()) {
     const match = key.match(/^cluster(\d+)$/);
+
     if (match) {
       const parts = value.split("|");
+
       if (parts[0] === "text" && parts[1]) {
-        groups.set(match[1], cleanText(parts[1]));
+        groups.set(
+          match[1],
+          cleanText(parts[1])
+        );
       }
     }
   }
 
   for (const [key, value] of params.entries()) {
     const match = key.match(/^v(\d+)_(\d+)$/);
+
     if (!match) continue;
 
     const parts = value.split("|");
+
     if (parts[0] !== "text" || !parts[1]) continue;
 
     const vocabulary = cleanText(parts[1]);
@@ -299,213 +336,222 @@ function findPairs(data) {
 
     found.push({
       front: vocabulary,
-      back: groupName,
-      translations: []
+      back: ""
     });
   }
 
   return found;
 }
 
-function createLanguageSelect(selected) {
-  const select = document.createElement("select");
-
-  languages.forEach(([code, name]) => {
-    const option = document.createElement("option");
-    option.value = code;
-    option.textContent = name;
-    option.selected = code === selected;
-    select.appendChild(option);
-  });
-
-  return select;
-}
-
+// Vokabeltabelle anzeigen
 function render() {
-  $("empty").classList.toggle("hidden", pairs.length > 0);
-  $("results").classList.toggle("hidden", pairs.length === 0);
+  $("empty").classList.toggle(
+    "hidden",
+    pairs.length > 0
+  );
+
+  $("results").classList.toggle(
+    "hidden",
+    pairs.length === 0
+  );
+
   $("vocab").innerHTML = "";
 
   pairs.forEach((p, i) => {
-    if (!Array.isArray(p.translations)) p.translations = [];
-
     const tr = document.createElement("tr");
 
     for (const field of ["front", "back"]) {
       const td = document.createElement("td");
       const input = document.createElement("input");
+
       input.value = p[field] || "";
+
       input.addEventListener("input", () => {
         pairs[i][field] = input.value;
         saveCards();
       });
+
       td.appendChild(input);
       tr.appendChild(td);
     }
 
-    const translationCell = document.createElement("td");
-    const translationList = document.createElement("div");
+    const td = document.createElement("td");
 
-    p.translations.forEach((translation, j) => {
-      const row = document.createElement("div");
-      row.className = "translation";
-
-      const select = createLanguageSelect(translation.lang);
-      select.addEventListener("change", () => {
-        pairs[i].translations[j].lang = select.value;
-        saveCards();
-      });
-
-      const input = document.createElement("input");
-      input.placeholder = "Übersetzung...";
-      input.value = translation.text;
-      input.addEventListener("input", () => {
-        pairs[i].translations[j].text = input.value;
-        saveCards();
-      });
-
-      const remove = document.createElement("button");
-      remove.textContent = "✕";
-      remove.className = "danger";
-      remove.title = "Übersetzung löschen";
-      remove.onclick = () => {
-        pairs[i].translations.splice(j, 1);
-        render();
-        saveCards();
-      };
-
-      row.append(select, input, remove);
-      translationList.appendChild(row);
-    });
-
-    const addTranslation = document.createElement("button");
-    addTranslation.textContent = "+ Übersetzung";
-    addTranslation.className = "secondary";
-    addTranslation.onclick = () => {
-      pairs[i].translations.push({ lang: "en", text: "" });
-      render();
-      saveCards();
-    };
-
-    translationCell.append(translationList, addTranslation);
-    tr.appendChild(translationCell);
-
-    const actionCell = document.createElement("td");
     const del = document.createElement("button");
+
     del.textContent = "✕";
     del.className = "danger";
     del.title = "Vokabel löschen";
+
     del.onclick = () => {
       pairs.splice(i, 1);
       render();
       saveCards();
     };
-    actionCell.appendChild(del);
-    tr.appendChild(actionCell);
+
+    td.appendChild(del);
+    tr.appendChild(td);
 
     $("vocab").appendChild(tr);
   });
 
-  $("count").textContent = pairs.length + " Vokabelpaare";
+  $("count").textContent =
+    pairs.length + " Vokabelpaare";
 }
 
+// LearningApps laden und automatisch übersetzen
 $("load").onclick = async () => {
   try {
     const guid = getGuid($("url").value.trim());
+
     $("load").disabled = true;
+
     setStatus("Lade LearningApps-Daten ...");
 
     const response = await fetch(
-      "https://learningapps.org/data?id=" + encodeURIComponent(guid)
+      "https://learningapps.org/data?id=" +
+      encodeURIComponent(guid)
     );
 
     if (!response.ok) {
-      throw new Error("LearningApps antwortet mit HTTP " + response.status);
+      throw new Error(
+        "LearningApps antwortet mit HTTP " +
+        response.status
+      );
     }
 
     const raw = await response.text();
+
     let data;
+
     try {
       data = JSON.parse(raw);
     } catch {
-      throw new Error("Die Antwort ist kein gültiges JSON. Antwortbeginn: "
-        + raw.slice(0, 180));
+      throw new Error(
+        "Die Antwort ist kein gültiges JSON. Antwortbeginn: " +
+        raw.slice(0, 180)
+      );
     }
 
-    $("debug").textContent = JSON.stringify(data, null, 2);
+    $("debug").textContent =
+      JSON.stringify(data, null, 2);
 
     const newPairs = findPairs(data);
 
-    if (newPairs.length) {
-      pairs = newPairs;
+    if (!newPairs.length) {
+      setStatus(
+        "Keine Vokabelpaare gefunden.",
+        "error"
+      );
+      return;
+    }
+
+    pairs = newPairs;
+
+    render();
+    saveCards();
+
+    let translated = 0;
+    let failed = 0;
+
+    for (let i = 0; i < pairs.length; i++) {
+      setStatus(
+        "Übersetze Vokabeln: " +
+        (i + 1) + " von " + pairs.length + " ..."
+      );
+
+      try {
+        pairs[i].back = await translateToGerman(
+          pairs[i].front
+        );
+
+        translated++;
+      } catch (e) {
+        console.error(
+          "Übersetzung fehlgeschlagen:",
+          pairs[i].front,
+          e
+        );
+
+        failed++;
+      }
+
       render();
       saveCards();
-      setStatus(newPairs.length +
-        " mögliche Vokabelpaare gefunden. Bitte kontrollieren!",
-        "success");
-    } else {
-      setStatus("Keine Vokabelpaare gefunden.", "error");
     }
+
+    setStatus(
+      translated + " Vokabeln erfolgreich ins Deutsche übersetzt." +
+      (failed
+        ? "\n" + failed + " Übersetzungen fehlgeschlagen. Diese kannst du manuell ergänzen."
+        : "") +
+      "\nDu kannst jetzt alle Rückseiten bearbeiten.",
+      failed ? "error" : "success"
+    );
+
   } catch (e) {
-    setStatus("Fehler: " + e.message +
+    setStatus(
+      "Fehler: " + e.message +
       "\n\nFalls der Browser den Zugriff wegen CORS blockiert, " +
-      "benötigen wir eine alternative Abrufmethode.", "error");
+      "benötigen wir eine alternative Abrufmethode.",
+      "error"
+    );
+
   } finally {
     $("load").disabled = false;
   }
 };
 
+// Eigene Vokabel hinzufügen
 $("add").onclick = () => {
   pairs.push({
     front: "",
-    back: "",
-    translations: []
+    back: ""
   });
+
   render();
   saveCards();
 };
 
+// Anki-Export
 $("export").onclick = () => {
   const valid = pairs.filter(p =>
     p.front.trim() && p.back.trim()
   );
 
   if (!valid.length) {
-    alert("Keine vollständigen Vokabelpaare vorhanden.");
+    alert(
+      "Keine vollständigen Vokabelpaare vorhanden."
+    );
     return;
   }
 
   const quote = value =>
     '"' + String(value).replace(/"/g, '""') + '"';
 
-  const content = "\uFEFF" + valid.map(p => {
-    const translations = (p.translations || [])
-      .filter(t => t.text.trim())
-      .map(t => {
-        const lang = languages.find(l => l[0] === t.lang);
-        return (lang ? lang[1] : t.lang) + ": " + t.text;
-      })
-      .join("; ");
-
-    return [
+  const content = "\uFEFF" + valid.map(p =>
+    [
       quote(p.front),
-      quote(p.back),
-      quote(translations)
-    ].join("\t");
-  }).join("\r\n");
+      quote(p.back)
+    ].join("\t")
+  ).join("\r\n");
 
   const blob = new Blob([content], {
     type: "text/tab-separated-values;charset=utf-8"
   });
 
   const link = document.createElement("a");
+
   link.href = URL.createObjectURL(blob);
   link.download = "learningapps2anki.tsv";
+
   link.click();
+
   URL.revokeObjectURL(link.href);
 };
 
 loadSavedCards();
 </script>
+
 </body>
 </html>
